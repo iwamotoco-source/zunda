@@ -327,6 +327,6 @@ el.clearHistory.onclick=async()=>{
  }catch{toast('履歴の削除に失敗しました')}
 };
 initControls();
-voiceLibrary=initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,cfg});
+voiceLibrary=initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,cfg,generateBlob:async(text,styleId)=>{const blobs=[];for(const part of splitText(text,105))blobs.push(cfg.mode==='cloud'?await cloudSynthesize(part,styleId):await customSynthesize(part,{...cfg,styleId}));return mergeWavs(blobs);}});
 loadHistory();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
