@@ -18,6 +18,20 @@
 <button class="icobtn" id="settingsBtn" type="button" aria-label="設定を表示" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v2M12 20v2M4 4l2 2M18 18l2 2M2 12h2M20 12h2M4 20l2-2M18 6l2-2"/><circle cx="12" cy="12" r="4"/></svg></button>
 </header>
 <div class="modebar"><span class="mode-pill" id="modeName">VOICEVOX クラウド</span><span class="credit">VOICEVOX:ずんだもん</span></div>
+<section class="library" id="library" aria-label="登録ボイスと定型フレーズ">
+ <div class="library-head"><div><span class="lib-eyebrow">QUICK VOICE LIBRARY</span><h2>ひとこと、すぐに再生。</h2></div><span class="lib-counter" id="librarySummary">229フレーズ</span></div>
+ <div class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.7" cy="10.7" r="6.4"/><path d="m16 16 5 5"/></svg><input id="voiceSearch" type="search" enterkeyhint="search" placeholder="ボイス検索 / arig・ありが・ありがとう" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="ボイスを読み・ローマ字・日本語で検索"><button type="button" id="clearSearch" class="search-clear" aria-label="検索をクリア" hidden>×</button></div>
+ <div class="lib-tabs" id="libraryTabs" aria-label="表示するボイス">
+  <button type="button" data-filter="all" aria-pressed="true">すべて</button>
+  <button type="button" data-filter="favorite" aria-pressed="false"><span aria-hidden="true">★</span> お気に入り</button>
+  <button type="button" data-filter="preset" aria-pressed="false">定型フレーズ</button>
+ </div>
+ <div class="category-scroll" id="categories" aria-label="フレーズのカテゴリー"></div>
+ <div class="results-head"><span id="matchCount" aria-live="polite">読み込み中</span><span>タップして再生</span></div>
+ <div class="phrase-list" id="phraseList"></div>
+ <button type="button" id="morePhrases" class="more-phrases" hidden>さらに表示</button>
+ <p class="lib-note">初回だけ音声を生成。生成済みの声とお気に入りはこのiPhoneに保存されるのだ。</p>
+</section>
 <section class="log" id="log" aria-label="会話と音声の履歴">
  <div class="empty" id="empty">
  <img src="/icon.svg" width="76" height="76" alt="">
@@ -56,6 +70,15 @@
 </section>
 <footer class="foot">VOICEVOX:ずんだもん · 非公式PWA<br>プライベートな文章は送信しないでください</footer>
 </div></main>
+<dialog id="favoriteEditor" class="favorite-dialog">
+  <form id="favoriteForm" class="favorite-form">
+   <div class="sheet-header"><b>登録ボイスを編集</b><button type="button" class="close" id="dismissFavorite" aria-label="閉じる">×</button></div>
+   <label for="favTitle">表示名</label><input id="favTitle" type="text" maxlength="90" required placeholder="ボイスの名前">
+   <label for="favReading">よみがな・検索ワード</label><input id="favReading" type="text" maxlength="180" placeholder="例：ありがとう / arigatou">
+   <p class="assist">漢字を含む自分のボイスは読みを登録すると、ひらがな・ローマ字でも見つけられるのだ。</p>
+   <div class="favorite-dialog-actions"><button type="button" id="removeFavorite" class="smallbtn danger">登録解除</button><button type="submit" class="smallbtn accent">保存する</button></div>
+  </form>
+ </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="/src/main.js"></script>
 </body></html>

@@ -1,4 +1,5 @@
 import './style.css';
+import {initVoiceLibrary} from './library.js';
 import {STYLES,splitText,zundafy} from '../lib/voice.js';
 const $=s=>document.querySelector(s);
 const el={
@@ -20,6 +21,7 @@ const validStyles=new Set(STYLES.map(s=>s.id));
 if(!validStyles.has(Number(cfg.styleId)))cfg.styleId=3;
 if(!['cloud','custom'].includes(cfg.mode))cfg.mode='cloud';
 let running=false,queue=Promise.resolve(),toastTimer=null,dbPromise=null,activeUrl=null,player=new Audio(),audioContext=null;
+let voiceLibrary=null;
 player.preload='auto';
 const toast=(str,ms=4200)=>{
  el.toast.textContent=str;el.toast.classList.add('on');clearTimeout(toastTimer);
@@ -201,7 +203,7 @@ function cardFor(item){
  const play=document.createElement('button');play.type='button';play.textContent='▶ 再生';play.disabled=!item.blob;
  const save=document.createElement('button');save.type='button';save.textContent='↓ WAV保存';save.disabled=!item.blob;
  const retry=document.createElement('button');retry.type='button';retry.textContent='↻ やり直す';retry.hidden=item.state!=='エラー';
- actions.append(play,save,retry);card.append(line,status,actions);msg.append(bubble,card);el.log.append(msg);
+ actions.append(play,save,retry);if(voiceLibrary)actions.append(voiceLibrary.favoriteButton(item));card.append(line,status,actions);msg.append(bubble,card);el.log.append(msg);
  if(item.state==='エラー')card.classList.add('error');
  play.onclick=()=>{primeAudio();playAudio(item.blob,card,item.speed||1)};
  save.onclick=()=>saveWav(item.blob,'zundamon-'+item.id+'.wav');
@@ -217,8 +219,8 @@ function cardFor(item){
 function openDB(){
  if(dbPromise)return dbPromise;
  dbPromise=new Promise((resolve,reject)=>{
-  const req=indexedDB.open('zunda-switch-history',1);
-  req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('records'))req.result.createObjectStore('records',{keyPath:'id'})};
+  const req=indexedDB.open('zunda-switch-history',2);
+  req.onupgradeneeded=()=>{for(const name of ['records','favorites','clips'])if(!req.result.objectStoreNames.contains(name))req.result.createObjectStore(name,{keyPath:'id'})};
   req.onsuccess=()=>resolve(req.result);
   req.onerror=()=>reject(req.error);
  });
@@ -229,7 +231,7 @@ async function storeRecord(item){
   const db=await openDB();
   await new Promise((resolve,reject)=>{
    const tx=db.transaction('records','readwrite');
-   tx.objectStore('records').put({id:item.id,text:item.text,styleId:item.styleId,speed:item.speed,state:item.state,blob:item.blob||null,time:item.time});
+   tx.objectStore('records').put({id:item.id,text:item.text,styleId:item.styleId,speed:item.speed,state:item.state,blob:item.blob||null,time:item.time,originPresetId:item.originPresetId||null,cacheKey:item.cacheKey||null});
    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
   });
   const history=await readRecords();
@@ -274,24 +276,26 @@ async function process(item,card,settings){
   const merged=await mergeWavs(blobs);
   item.blob=merged;item.state='完了';card.success(merged);
   await storeRecord(item);
+  await voiceLibrary?.recordGenerated(item,settings);
   setStatus('on','音声の準備ができました');
   // Try automatic play; manual control is always available for iOS autoplay restrictions.
   await playAudio(merged,card.audio(),settings.mode==='cloud'?settings.speed:1);
  }catch(e){
   item.state='エラー';card.fail(e.message||'合成に失敗しました');
-  await storeRecord(item);setStatus('off','接続・合成エラー');
+  await storeRecord(item);voiceLibrary?.recordFailed(item);setStatus('off','接続・合成エラー');
   toast(e.message||'音声を生成できませんでした',6500);
  }
 }
-function submitText(value,retry=false){
+function submitText(value,retry=false,extras={}){
  const text=String(value||'').trim();if(!text)return;
  if(text.length>700)return toast('700文字以内にしてください');
  primeAudio();
- const settings={...cfg};
- const item={id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text,styleId:Number(cfg.styleId),speed:Number(cfg.speed),time:Date.now(),state:'合成中…',blob:null};
+ const settings={...cfg,...extras};
+ const item={id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text,styleId:Number(settings.styleId),speed:Number(settings.speed),originPresetId:extras.presetId||null,cacheKey:extras.cacheKey||null,libraryId:extras.libraryId||null,time:Date.now(),state:'合成中…',blob:null};
  const card=cardFor(item);
  if(!retry){el.text.value='';el.count.textContent='0 / 700'}
- queue=queue.then(()=>process(item,card,settings)).catch(e=>console.error(e));
+ queue=queue.then(()=>process(item,card,settings)).catch(e=>{console.error(e);voiceLibrary?.recordFailed(item)});
+ return item;
 }
 el.send.onclick=()=>submitText(el.text.value);
 el.text.oninput=()=>{el.count.textContent=el.text.value.length+' / 700'};
@@ -323,5 +327,6 @@ el.clearHistory.onclick=async()=>{
  }catch{toast('履歴の削除に失敗しました')}
 };
 initControls();
+voiceLibrary=initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,cfg});
 loadHistory();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
