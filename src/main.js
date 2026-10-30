@@ -39,7 +39,7 @@ function displayMode(){
  el.engineNote.textContent=cloud?'TTS Quest の無料APIに文章を送信します。APIの混雑で待ち時間や利用制限が生じます。保存したWAVは端末内で保持します。':'HTTPSで公開した、自分が管理するVOICEVOX Engineを利用。エンジン側のCORS許可が必要です。';
  el.speedHint.textContent=cloud?'クラウド利用時は再生速度のみ変更します。音程・抑揚の変更は自前エンジンで利用できます。':'エンジン側で話す速さを変更して合成します。';
  [...el.engineMode.children].forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===cfg.mode)));
- setStatus(cloud?'on':'',cloud?'クラウドモード · 送信待ち':'自前エンジン · 接続を確認');
+ setStatus('',cloud?'クラウドモード · 音声生成時に接続':'自前エンジン · 接続を確認');
 }
 function renderStyles(){
  el.styles.replaceChildren();
