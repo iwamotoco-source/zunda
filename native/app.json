@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "ずんだスイッチ Offline",
+    "slug": "zunda-switch-offline",
+    "scheme": "zundaswitchoffline",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.example.zundaswitchoffline",
+      "deploymentTarget": "16.4",
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
+    },
+    "plugins": [
+      [
+        "@faiare/expo-voicevox",
+        {
+          "voices": [
+            "zundamon/normal",
+            "zundamon/amaama",
+            "zundamon/tsuntsun",
+            "zundamon/sexy",
+            "zundamon/sasayaki",
+            "zundamon/hisohiso",
+            "zundamon/herohero",
+            "zundamon/namidame"
+          ],
+          "assetSource": "bundle",
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "enableFileSharing": true,
+          "supportsOpeningDocumentsInPlace": true
+        }
+      ],
+      "expo-audio"
+    ],
+    "extra": {
+      "engine": "voicevox-core-0.17.0",
+      "mode": "native-offline"
+    }
+  }
+}

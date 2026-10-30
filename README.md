@@ -50,3 +50,14 @@ Vercel Functions: `/api/speak`（TTS Questへの合成リクエスト）、`/api
 **VOICEVOX:ずんだもん**
 
 音声利用時は [VOICEVOX公式](https://voicevox.hiroshiba.jp/) および [ずんだもん音源利用規約](https://www.zunko.jp/con_ongen_kiyaku.html) に従い、適切なクレジット表記をお願いします。
+
+## iPhone単体・完全オフライン音声生成（ネイティブ版候補）
+
+`native/` に VOICEVOX CoreのiOSネイティブモジュールを使ったExpoアプリを追加しました。
+
+- **PWAはクラウド版のまま**：Safariでは現行のVOICEVOX Core iOSネイティブバイナリを直接動かせません。
+- **ネイティブ版は8スタイルとOpenJTalkを同梱**：iPhoneへインストール後は機内モードでも新しい文章を音声生成する設計です。
+- 229種類のフレーズ、かな・ローマ字検索、お気に入りWAVをDocumentsへ保存、ワンタッチ再生、WAV共有に対応するコードを実装しました。
+- PWAのお気に入りデータをネイティブに自動移行する機能はまだありません。
+- 未ビルド・未実機検証：Macで `cd native && npm install && npx expo install --fix && npx expo prebuild --platform ios && npx expo run:ios --device` の実施が必要です。
+- `native/README.md` に導入・制約を記載しています。既存のVercel PWAには変更を加えていません。
