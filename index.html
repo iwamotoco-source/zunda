@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>ずんだスイッチ — iPhone音声スタジオ</title>
+<meta name="description" content="iPhoneからずんだもんの声を作って再生・WAV保存。">
+<meta name="theme-color" content="#07080b"><link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ずんだスイッチ"></head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+<main class="device"><div class="screen">
+<header class="bar">
+<span class="led" id="led" aria-hidden="true"></span>
+<img class="logo" src="/icon.svg" alt="">
+<div class="headcopy"><b>ずんだ<span>スイッチ</span></b><small id="connection">クラウド音声を使用</small></div>
+<button class="icobtn" id="historyBtn" type="button" aria-label="履歴を表示" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-7M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></button>
+<button class="icobtn" id="settingsBtn" type="button" aria-label="設定を表示" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v2M12 20v2M4 4l2 2M18 18l2 2M2 12h2M20 12h2M4 20l2-2M18 6l2-2"/><circle cx="12" cy="12" r="4"/></svg></button>
+</header>
+<div class="modebar"><span class="mode-pill" id="modeName">VOICEVOX クラウド</span><span class="credit">VOICEVOX:ずんだもん</span></div>
+<section class="log" id="log" aria-label="会話と音声の履歴">
+ <div class="empty" id="empty">
+ <img src="/icon.svg" width="76" height="76" alt="">
+ <b>ボクに文章を送ってほしいのだ！</b>
+ <span>送った文章をずんだもんの声で読み上げるよ。<br>音声はあとから再生・保存できるのだ。</span>
+ </div>
+</section>
+<div class="inputbox">
+ <label class="sr-only" for="text">読み上げる文章</label><textarea id="text" rows="2" maxlength="700" placeholder="ずんだもんに喋らせたい文章を入力…"></textarea>
+ <div class="composebar"><span id="count">0 / 700</span><span class="spacer"></span><span class="hintkey">改行対応</span><button class="send" id="send" type="button" aria-label="音声を生成して再生"><svg viewBox="0 0 24 24" fill="none" stroke="#07321a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button></div>
+</div>
+<section class="sheet" id="settings" hidden aria-label="設定">
+<div class="sheet-header"><b>音声設定</b><button class="close" id="closeSettings" type="button" aria-label="設定を閉じる">×</button></div>
+<div class="block"><div class="label">音声エンジン</div>
+<div class="seg two" id="engineMode"><button type="button" data-mode="cloud" aria-pressed="true">iPhoneだけで使う</button><button type="button" data-mode="custom" aria-pressed="false">自前のVOICEVOX</button></div>
+<p class="assist" id="engineNote">クラウド版VOICEVOXを利用します。文章は外部のTTS Questへ送信されます。無料APIの混雑時は音声生成が遅くなります。</p>
+</div>
+<div class="block" id="customBlock" hidden><label class="label" for="engine">VOICEVOX Engine の HTTPS URL</label>
+<input type="url" id="engine" placeholder="https://your-private-voicevox.example.com" spellcheck="false" inputmode="url">
+<p class="assist">iPhone単体の 127.0.0.1 は使えません。自分で管理するHTTPS接続先を指定してください。公開する場合は認証とCORS制限を設定してください。</p><button class="smallbtn" id="testBtn" type="button">接続を確認</button>
+</div>
+<div class="block"><div class="label">声のスタイル</div><div class="chips" id="styles"></div></div>
+<div class="block"><label class="label" for="speed">話す速さ <span id="speedVal">1.00×</span></label><input type="range" id="speed" min=".65" max="1.7" step=".05" value="1"><p class="assist" id="speedHint">クラウド利用時はiPhoneの再生速度を調整します。</p></div>
+<div class="block advanced" id="advanced" hidden>
+<label class="label" for="inton">抑揚 <span id="intonVal">1.00</span></label><input type="range" id="inton" min="0" max="2" step=".05" value="1">
+<label class="label" for="pitch">音程 <span id="pitchVal">0.00</span></label><input type="range" id="pitch" min="-.15" max=".15" step=".01" value="0">
+</div>
+<div class="block toggle-block"><div><b>語尾を「なのだ」に</b><small>文章の末尾を必要に応じて調整</small></div><label class="switch"><input type="checkbox" id="zunda" checked><span class="track"></span></label></div>
+<div class="block"><button class="smallbtn" id="sampleBtn" type="button">「こんにちはなのだ」を試す</button></div>
+<div class="legal">音声クレジット：<b>VOICEVOX:ずんだもん</b><br>
+<a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX公式サイト</a> · <a href="https://www.zunko.jp/con_ongen_kiyaku.html" target="_blank" rel="noopener">音源利用規約</a></div>
+</section>
+<section class="sheet" id="history" hidden aria-label="履歴の管理"><div class="sheet-header"><b>生成履歴</b><button class="close" id="closeHistory" type="button" aria-label="履歴を閉じる">×</button></div>
+<p class="assist">過去40件まで端末内に保存。音声が残っているものは再生・WAV保存できます。</p>
+<button class="smallbtn danger" id="clearHistory" type="button">履歴をすべて削除</button>
+</section>
+<footer class="foot">VOICEVOX:ずんだもん · 非公式PWA<br>プライベートな文章は送信しないでください</footer>
+</div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/src/main.js"></script>
+</body></html>

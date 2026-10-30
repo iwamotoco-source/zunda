@@ -1,0 +1,14 @@
+{
+  "name": "zunda-switch",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run test && vite build",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "vite": "6.3.5"
+  }
+}
