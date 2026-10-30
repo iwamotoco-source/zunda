@@ -13,6 +13,8 @@ const STYLE_NAME={3:'ノーマル',1:'あまあま',7:'ツンツン',5:'セク�
 const FAV_KEY='zunda-offline:favorites:v1';
 const HISTORY_KEY='zunda-offline:history:v1';
 const VOICE_DIRECTORY='zunda-voice-favorites';
+const PRESET_DIRECTORY='zunda-preset-cache';
+const BATCH_KEY='zunda-offline:batch:v1';
 const VOICE_ID=(id,style)=>String(id).replace(/[^a-z0-9-]/gi,'_')+'-'+String(style)+'.wav';
 const info={styleId:3,speedScale:1,intonationScale:1,pitchScale:0};
 
@@ -20,6 +22,7 @@ const MonoText=({children,style})=><Text style={[styles.label,style]}>{children}
 const Pill=({selected,children,onPress,disabled})=><Pressable disabled={disabled} onPress={onPress} style={[styles.pill,selected&&styles.pillSelected,disabled&&{opacity:.35}]} accessibilityRole="button" accessibilityState={{selected,disabled}}><Text style={[styles.pillText,selected&&styles.pillTextSelected]}>{children}</Text></Pressable>;
 function messageError(error){return String(error?.message||error||'不明なエラー').slice(0,160)}
 function fileFor(fav){return new File(Paths.document,VOICE_DIRECTORY,fav.fileName||VOICE_ID(fav.id,fav.styleId))}
+function presetFile(p){return new File(Paths.document,PRESET_DIRECTORY,VOICE_ID(p.id,p.styleId))}
 function ensureDirectory(){
  const dir=new Directory(Paths.document,VOICE_DIRECTORY);
  if(!dir.exists)dir.create({intermediates:true});
@@ -28,6 +31,8 @@ function ensureDirectory(){
 
 export default function App(){
  const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState('VOICEVOXの音声モデルを初期化中…');
+ const [batch,setBatch]=useState({running:false,done:0,total:PRESETS.length,failed:0,started:false});
+ const cancelBatchRef=useRef(false),batchRunningRef=useRef(false);
  const [search,setSearch]=useState(''),[category,setCategory]=useState('すべて'),[tab,setTab]=useState('all');
  const [styleId,setStyleId]=useState(3),[available,setAvailable]=useState([3]),[speed,setSpeed]=useState(1);
  const [text,setText]=useState(''),[favs,setFavs]=useState({}),[history,setHistory]=useState([]),[playing,setPlaying]=useState('');
@@ -51,6 +56,10 @@ export default function App(){
     if(!mountedRef.current)return;
     setAvailable(ids);setStyleId(ids.includes(3)?3:ids[0]);setReady(true);
     setStatus('オフライン生成の準備ができたのだ！');
+    try{
+      const completed=PRESETS.filter(p=>presetFile(p).exists).length;
+      setBatch({running:false,done:completed,total:PRESETS.length,failed:0,started:false});
+    }catch{}
    }catch(e){setStatus('エンジンの初期化失敗：'+messageError(e))}
   })();
   return ()=>{
@@ -100,6 +109,10 @@ export default function App(){
    const fav=favs[phrase.id];
    if(fav?.fileName && await playbackFile(fav)){
     setStatus('登録済みWAVを再生中なのだ');
+   }else if(phrase.id&&presetFile(phrase).exists){
+    await stopAll();
+    const audio=createAudioPlayer({uri:presetFile(phrase).uri});playerRef.current=audio;audio.play();
+    setStatus('一括生成済みのWAVを再生中なのだ');
    }else{
     await stopAll();
     const opts={speedScale:speed,prePhonemeLength:0,audioSession:'exclusive'};
@@ -124,7 +137,7 @@ export default function App(){
   try{
    const sp=phrase.styleId||styleId;
    setStatus('お気に入りWAVを端末内で生成中なのだ…');
-   const wav=await Voicevox.tts(phrase.text,sp,{directory:'document',speedScale:speed});
+   const wav=phrase.id&&presetFile(phrase).exists?presetFile(phrase).uri:await Voicevox.tts(phrase.text,sp,{directory:'document',speedScale:speed});
    const src=new File(wav);
    const dir=ensureDirectory();
    const fileName=VOICE_ID(id,sp);
@@ -155,6 +168,37 @@ export default function App(){
   await recordHistory(t,styleId);
   await speak({id:'',text:t,styleId});
  };
+ const startBatch=async()=>{
+  if(!ready||batchRunningRef.current||queueRef.current)return;
+  batchRunningRef.current=true;cancelBatchRef.current=false;queueRef.current=true;
+  let success=0,failed=0;
+  try{
+   const directory=new Directory(Paths.document,PRESET_DIRECTORY);
+   if(!directory.exists)directory.create({intermediates:true});
+   success=PRESETS.filter(p=>presetFile(p).exists).length;
+   setBatch({running:true,done:success,total:PRESETS.length,failed:0,started:true});
+   for(const phrase of PRESETS){
+    if(cancelBatchRef.current)break;
+    if(presetFile(phrase).exists)continue;
+    try{
+     const wav=await Voicevox.tts(phrase.text,phrase.styleId,{directory:'document',speedScale:1});
+     const source=new File(wav),dest=presetFile(phrase);
+     if(dest.exists)dest.delete();
+     await source.copy(dest);
+     if(!dest.exists)throw new Error('WAV保存失敗');
+     success++;
+    }catch(e){console.warn('Batch synth failed',phrase.id,e);failed++}
+    setBatch({running:true,done:success,total:PRESETS.length,failed,started:true});
+    setStatus('音声を一括生成中 '+success+' / '+PRESETS.length+' 件');
+    await new Promise(resolve=>setTimeout(resolve,0));
+   }
+   await AsyncStorage.setItem(BATCH_KEY,JSON.stringify({completed:success,total:PRESETS.length,at:Date.now()}));
+   setStatus(cancelBatchRef.current?'生成を中断したのだ。次回は続きから再開できるのだ！':failed?'生成を終了したのだ。失敗分はもう一度実行できるのだ！':'229件すべて端末に保存したのだ！');
+  }finally{
+   setBatch({running:false,done:success,total:PRESETS.length,failed,started:true});
+   batchRunningRef.current=false;queueRef.current=false;
+  }
+ };
  const renderRow=({item})=>{
   const fav=favs[item.id];
   return <View style={styles.row}>
@@ -162,7 +206,7 @@ export default function App(){
      <View style={styles.playCircle}><Text style={styles.playSymbol}>▶</Text></View>
      <View style={styles.rowCopy}>
       <Text numberOfLines={2} style={styles.rowTitle}>{item.title||item.text}</Text>
-      <Text style={styles.rowSub}>{fav?.fileName?'保存済み / 即再生':'端末内で音声生成'} · {item.category}</Text>
+      <Text style={styles.rowSub}>{fav?.fileName||presetFile(item).exists?'保存済み / 即再生':'端末内で音声生成'} · {item.category}</Text>
      </View>
     </Pressable>
     <Pressable disabled={!ready||busy} onPress={()=>favorite(item)} accessibilityLabel={fav?'お気に入り解除':'お気に入りへ保存'} style={styles.star}>
@@ -177,6 +221,12 @@ export default function App(){
    <Text style={styles.title}>ずんだ<Text style={{color:COLOR.green}}>スイッチ</Text></Text>
    <Text style={styles.subtitle}>VOICEVOX:ずんだもん · iPhone内で音声生成</Text>
    <Text style={[styles.status,!ready&&{color:COLOR.gold}]}>{ready?'● ': '◌ '}{status}</Text>
+  </View>
+  <View style={styles.batchPanel}>
+   <Text style={styles.batchTitle}>全フレーズを一括で準備するのだ</Text>
+   <Text style={styles.batchSubtitle}>{batch.done} / {batch.total}件 保存済み　{batch.failed?('失敗 '+batch.failed+'件'):''}</Text>
+   <View style={styles.batchBar}><View style={[styles.batchFill,{width:(100*batch.done/batch.total)+'%'}]}/></View>
+   <Pressable disabled={!ready||(!batch.running&&busy)||batch.done===batch.total} onPress={()=>batch.running?(cancelBatchRef.current=true):startBatch()} style={[styles.batchButton,(!ready||batch.done===batch.total)&&{opacity:.45}]}><Text style={styles.batchButtonText}>{batch.running?'一括生成を中断する':batch.done===batch.total?'全件準備完了':batch.done?'未生成分をまとめて生成':'初回229件を一括生成'}</Text></Pressable>
   </View>
   <TextInput style={styles.search} value={search} onChangeText={setSearch} placeholder="検索：ari / ありが / ありがとう" placeholderTextColor="#769985" autoCapitalize="none" autoCorrect={false} returnKeyType="search"/>
   <View style={styles.tabs}>
@@ -245,5 +295,9 @@ const styles=StyleSheet.create({
  input:{flex:1,backgroundColor:COLOR.surface,borderWidth:1,borderColor:COLOR.edge,borderRadius:12,color:'#fff',fontSize:14,maxHeight:100,paddingHorizontal:9,paddingVertical:8},
  speak:{paddingHorizontal:12,alignSelf:'stretch',justifyContent:'center',borderRadius:12,backgroundColor:COLOR.green},
  saveManual:{paddingHorizontal:9,alignSelf:'stretch',justifyContent:'center',borderRadius:12,backgroundColor:'#352f17'},
+ batchPanel:{marginHorizontal:13,marginBottom:9,padding:12,borderRadius:15,backgroundColor:'#183324',borderWidth:1,borderColor:'#3c7b52'},
+ batchTitle:{color:COLOR.light,fontSize:13,fontWeight:'800'},batchSubtitle:{color:COLOR.muted,fontSize:11,marginTop:4},
+ batchBar:{height:5,backgroundColor:'#102117',borderRadius:5,overflow:'hidden',marginVertical:9},batchFill:{height:5,backgroundColor:COLOR.green},
+ batchButton:{backgroundColor:COLOR.green,borderRadius:11,padding:10,alignItems:'center'},batchButtonText:{color:'#0b301b',fontWeight:'800',fontSize:12},
  footer:{alignItems:'center',paddingBottom:5}
 });
