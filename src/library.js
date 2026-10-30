@@ -16,7 +16,7 @@ function transact(db,store,mode,action){
 }
 function now(){return Date.now()}
 function cacheId(preset,mode){return preset.id+':'+preset.styleId+':'+mode}
-export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,cfg}){
+export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,cfg,generateBlob}){
  const el={
   search:$('#voiceSearch'),clear:$('#clearSearch'),tabs:$('#libraryTabs'),categories:$('#categories'),
   count:$('#matchCount'),summary:$('#librarySummary'),list:$('#phraseList'),more:$('#morePhrases'),
@@ -24,6 +24,39 @@ export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,c
   close:$('#dismissFavorite'),remove:$('#removeFavorite')
  };
  const favorites=new Map(),clips=new Map(),pending=new Set();
+ const bulk={count:$('#bulkCount'),fill:$('#bulkFill'),button:$('#bulkStart'),hint:$('#bulkHint')};
+ let bulkRunning=false,bulkCancel=false;
+ function countReady(){return PRESETS.filter(p=>clips.get(cacheId(p,cfg.mode))?.blob?.size>44).length}
+ function syncBulk(){const n=countReady();bulk.count.textContent=n+' / '+PRESETS.length+' 件';bulk.fill.style.width=(n/PRESETS.length*100)+'%';bulk.button.textContent=bulkRunning?'生成を中断':n===PRESETS.length?'全件準備完了':n?'未生成分をまとめて生成':'229フレーズを一括生成';bulk.button.disabled=!loaded||(!bulkRunning&&n===PRESETS.length)}
+ bulk.button.onclick=async()=>{
+  if(bulkRunning){bulkCancel=true;bulk.hint.textContent='現在の1件が完成したら中断するのだ';return}
+  if(!navigator.onLine){toast('初回生成にはネット接続が必要なのだ');return}
+  bulkRunning=true;bulkCancel=false;syncBulk();let failed=0;
+  try{
+   for(const p of PRESETS){
+    if(bulkCancel)break;
+    const id=cacheId(p,cfg.mode);
+    if(clips.get(id)?.blob?.size>44)continue;
+    bulk.hint.textContent='生成中：'+p.text;
+    try{
+     const blob=await generateBlob(p.text,p.styleId);
+     if(!blob||blob.size<44)throw Error('空のWAV');
+     const record={id,blob,time:now(),styleId:p.styleId,mode:cfg.mode};
+     if(!await put('clips',record))throw Error('保存失敗');
+     clips.set(id,record);syncBulk();
+    }catch(e){
+     failed++;console.warn('Batch error',p.id,e);
+     if(failed>=3){bulk.hint.textContent='合成サービスまたは保存先でエラーが続いたため中断。後から再開できるのだ';break}
+    }
+    await new Promise(resolve=>setTimeout(resolve,1600));
+   }
+  }finally{
+   bulkRunning=false;syncBulk();render();
+   if(countReady()===PRESETS.length)bulk.hint.textContent='全件保存完了！通信なしで再生できるのだ';
+   else if(bulkCancel)bulk.hint.textContent='中断済み。未生成分から再開できるのだ';
+   else if(!failed)bulk.hint.textContent='保存できた音声は残っているのだ';
+  }
+ };
  let filter='all',category='すべて',visibleCount=14,editingId=null,loaded=false,playingRow=null;
  const categories=['すべて','マイボイス',...CATEGORIES.slice(1)];
  const items=()=>{
@@ -148,7 +181,7 @@ export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,c
    if(await put('favorites',f))favorites.set(faveId,f);
   }
   pending.delete(item.libraryId||item.originPresetId||'');
-  render();
+  render();syncBulk();
  }
  function recordFailed(item){
   pending.delete(item.libraryId||item.originPresetId||'');
@@ -197,7 +230,7 @@ export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,c
    for(const f of fav||[])favorites.set(f.id,f);
    for(const c of clip||[])clips.set(c.id,c);
   }catch(e){console.warn(e);toast('端末の保存データを読み込めませんでした')}
-  finally{loaded=true;render()}
+  finally{loaded=true;render();syncBulk()}
  }
  render();load();
  return {favoriteButton,recordGenerated,recordFailed,reload:render};
