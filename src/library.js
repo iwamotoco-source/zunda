@@ -50,6 +50,7 @@ export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,c
   return clip?.blob instanceof Blob&&clip.blob.size>44?clip.blob:null;
  }
  function renderCategories(){
+  const previousScroll=el.categories.scrollLeft;
   el.categories.replaceChildren();
   for(const label of categories){
    const b=document.createElement('button');b.type='button';b.textContent=label;
@@ -58,6 +59,7 @@ export function initVoiceLibrary({openDB,primeAudio,playAudio,submitText,toast,c
    el.categories.append(b);
   }
   el.categories.hidden=filter==='favorite';
+  el.categories.scrollLeft=previousScroll;
  }
  function render(){
   const q=el.search.value;
